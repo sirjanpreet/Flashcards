@@ -1,8 +1,9 @@
 //import React, { Component, ChangeEvent, MouseEvent } from "react";
-import React, { Component, MouseEvent } from "react";
+import React, { Component, MouseEvent} from "react";
 // import React, { Component } from "react";
 import { isRecord } from './record';
 import { Create } from "./Create";
+import { Take } from './Take';
 import { card } from './help';
 
 
@@ -34,46 +35,12 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
   }
 
   componentDidMount = (): void => {
-    fetch("api/list")
+    fetch("/api/list")
       .then(this.doListResp)
       .catch(() => this.doListError("could not load list"));
-    
-    
   }
 
-  doListResp = (res: Response): void => {
-    if (res.status === 200) {
-      res.json().then(this.doListJson)
-      .catch(() => this.doListError("200 response is not valid json")); 
-    } else if (res.status === 400) {
-      res.text().then(this.doListError)
-      .catch(() => this.doListError("400 response is not text"));
-    } else{
-      this.doListError(`bad status code ${res.status}`);
-    }
-  }
-
-  doListJson = (data: unknown): void => {
-    if (!isRecord(data)) {
-      this.doListError("bad data from api/list: not a record");
-      return;
-    }
-    
-    if (!Array.isArray(data.quizzes)) {
-      this.doListError("bad data from api/list: quizzes was not an array");
-      return;
-    }
-    
-    if (!Array.isArray(data.scores)) {
-      this.doListError("bad data from api/list: scores was not an array");
-      return;
-    }
-    this.setState({quizzes: data.quizzes, scores: data.scores});
-  }
-
-  doListError = (msg: string): void => {
-    console.log(`fetch of /list failed: ${msg}`)
-  }
+  
   
   render = (): JSX.Element => {
     if (this.state.page.kind === "list") {
@@ -99,11 +66,13 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
     
   };
 
-
+  componentDidUpdate = (): void => {
+      this.componentDidMount();
+  }
   renderScores = (): JSX.Element => {
     const scoreList: JSX.Element[] = [];
     for (const quiz of this.state.scores) {
-      scoreList.push(<li> <div></div> {quiz.quizTaker},{quiz.quizName}: {String(quiz.score)} </li>);
+      scoreList.push(<li> <div></div> {quiz.quizTaker},{quiz.quizName}: {quiz.score.toString()} </li>);
       // quizList.push(<li> <div><a href="#" > {quiz} </a></div>  </li>);
     }
     return <div>{scoreList}</div>;
@@ -118,47 +87,92 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
     return <div>{quizList}</div>;
   }
 
+  doListResp = (res: Response): void => {
+    if (res.status === 200) {
+      res.json().then(this.doListJson)
+      .catch(() => this.doListError("200 response is not valid json")); 
+    } else if (res.status === 400) {
+      res.text().then(this.doListError)
+      .catch(() => this.doListError("400 response is not text"));
+    } else{
+      this.doListError(`bad status code ${res.status}`);
+    }
+  }
 
-  doAddClick = (quizName: string): void => {
+
+  //LIST
+  doListJson = (data: unknown): void => {
+    if (!isRecord(data)) {
+      this.doListError("bad data from api/list: not a record");
+      return;
+    }
+    
+    if (!Array.isArray(data.quizzes)) {
+      this.doListError("bad data from api/list: quizzes was not an array");
+      return;
+    }
+    
+    if (!Array.isArray(data.scores)) {
+      this.doListError("bad data from api/list: scores was not an array");
+      return;
+    }
+    this.setState({quizzes: data.quizzes, scores: data.scores});
+  }
+
+  doListError = (msg: string): void => {
+    console.log(`fetch of /api/list failed: ${msg}`)
+  }
+
+
+  // ADD QUIZ (save)
+  doAddClick = (quizName: string, deck: card[]): void => {
     // make fetch request to save on server.
-    const body = {name: quizName};
-    fetch("/api/saveQuiz", {method: "POST", body: JSON.stringify(body), headers: {"Content-Type": "application/json"}})
+    const body = {name: quizName, value: JSON.stringify(deck)};
+    fetch("/api/save", {method: "POST", body: JSON.stringify(body), headers: {"Content-Type": "application/json"}})
     .then(this.doAddResp)
     .catch(() => this.doAddError("failed to connect"))
   } 
 
   doAddResp = (res: Response): void => {
-    if (res.status === 200) {
+    if (res.status === 200) { 
+      console.log("again safd");
       res.json().then(this.doAddJson).catch(() => this.doAddError("200 response is not valid json"));
-    } else if(res.status === 400 || res.status === 404) {
+    } else if(res.status === 400) {
       res.text().then(this.doAddError).catch(() => this.doAddError("400 response is not text"));
+    } else if (res.status === 404) {
+      console.log("again ");
+      res.text().then(this.doAddError).catch(() => this.doAddError("404 response is not text"));
     } else {
       this.doAddError(`bad status code ${res.status}`);
     }
   }
 
   doAddError = (msg: string): void => {
-    console.log(`fetch of api/load failed: ${msg}`);
+    console.log(`fetch of /api/save failed: ${msg}`);
   }
 
-  doAddJson = (_data: unknown): void => {
+  doAddJson = (data: unknown): void => {
+    data;
     // const addedQuiz: string = this.state.quizzes;
     // const quizArray: string[] = this.state.
     // this.setState({quizzes: });
     this.setState({page: {kind: "list"}});
   } 
   
-  
+  // BACK
   doBackClick = (): void => {
     this.setState({page: {kind: "list"}});
   }
 
+  // NEW (create quiz)
   doNewClick = (_evt: MouseEvent): void => {
     this.setState({page: {kind: "createquiz"}});
   }
 
+
+  // LOAD (load)
   doLoadClick = (_evt: MouseEvent<HTMLElement>): void => {
-    fetch("api/load")
+    fetch("/api/load")
     .then(this.doLoadResp)
     .catch(() => this.doLoadError("failed to connect to server"));
   }
@@ -193,9 +207,9 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
 //   name: string;  // mirror state of name input box
 //   msg: string;   // essage sent from server
 // }
+// // export class FlashcardApp extends Component<{}, FlashcardAppState> {
 
-
-/** Displays the UI of the Flashcard application. */
+// /** Displays the UI of the Flashcard application. */
 // export class FlashcardApp extends Component<{}, FlashcardAppState> {
 
 //   constructor(props: {}) {

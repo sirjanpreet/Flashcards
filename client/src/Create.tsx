@@ -19,7 +19,7 @@ type CreateState = {
 };
 
 export class Create extends Component<CreateProps, CreateState> {
-
+    
     constructor(props: CreateProps) {
         super(props);
     
@@ -32,7 +32,7 @@ export class Create extends Component<CreateProps, CreateState> {
         <div>
             <label htmlFor="textbox">Enter text:</label>
             <br/>
-            <textarea id="textbox" rows={3} cols={40} onChange={this.doCreateChange} value={this.state.quizName}></textarea>
+            <textarea id="textbox" rows={3} cols={40} onChange={this.doCreateChange} value={this.state.cards}></textarea>
         </div>
         <div>
         <button type="button" onClick={this.doAddClick}>Create</button> 
@@ -64,12 +64,12 @@ export class Create extends Component<CreateProps, CreateState> {
     
 
     doBackClick = (_evt: MouseEvent<HTMLElement>): void => {
-        this.setState({quizName: "", cards: ""});
+        this.setState({quizName: "", cards: "", errorMsg: ""});
         this.props.onBack();
     }
 
-    doCreateChange = (_evt: ChangeEvent<HTMLTextAreaElement>): void => {
-        
+    doCreateChange = (evt: ChangeEvent<HTMLTextAreaElement>): void => {
+        this.setState({cards: evt.target.value});
     }
 
     doNameChange = (evt: ChangeEvent<HTMLInputElement>): void => {
