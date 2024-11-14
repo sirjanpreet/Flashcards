@@ -4,7 +4,7 @@ import React, { Component, MouseEvent} from "react";
 import { isRecord } from './record';
 import { Create } from "./Create";
 import { Take } from './Take';
-import { card } from './help';
+import { card, Page } from './help';
 
 
 // TODO: When you're ready to get started, you can remove all the example 
@@ -16,13 +16,14 @@ type result = {
   score: bigint;
 }
 
-type Page = {kind: "list"} | {kind: "takequiz"} | {kind: "createquiz"} | {kind: "endquiz"} | {kind: "scores"};
+
 
 type FlashcardAppState = {
   page: Page;
   quizzes: string[];
   currQuiz: card[];
   scores: result[]; 
+  currQuizName: string;
 }
 
 /** Displays the UI of the Flashcard application. */
@@ -31,7 +32,7 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
   constructor(props: {}) {
     super(props);
 
-    this.state = {page: {kind: "list"}, quizzes: [], currQuiz: [], scores: []};
+    this.state = {page: {kind: "list"}, quizzes: [], currQuiz: [], scores: [], currQuizName: ""};
   }
 
   componentDidMount = (): void => {
@@ -60,19 +61,22 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
               </div>
             </div>;
     } else if (this.state.page.kind === "createquiz") {
-      return <div><Create onSave={this.doAddClick} onBack={this.doBackClick}/></div>
+      return <div><Create quizzes={this.state.quizzes} onSave={this.doAddClick} onBack={this.doBackClick}/></div>
+    } else if (this.state.page.kind === "takequiz") {
+      return <div><Take quizName={this.state.currQuizName}onFinish={this.doFinishClick} deck={this.state.currQuiz}/></div>
     }
     return <div> </div>
-    
   };
 
   componentDidUpdate = (): void => {
-      this.componentDidMount();
+    fetch("/api/list")
+    .then(this.doListResp)
+    .catch(() => this.doListError("could not load list"));
   }
   renderScores = (): JSX.Element => {
     const scoreList: JSX.Element[] = [];
     for (const quiz of this.state.scores) {
-      scoreList.push(<li> <div></div> {quiz.quizTaker},{quiz.quizName}: {quiz.score.toString()} </li>);
+      scoreList.push(<li> <div></div> {quiz.quizTaker}, {quiz.quizName}: {quiz.score.toString()} </li>);
       // quizList.push(<li> <div><a href="#" > {quiz} </a></div>  </li>);
     }
     return <div>{scoreList}</div>;
@@ -81,10 +85,38 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
   renderQuizzes = (): JSX.Element => {
     const quizList: JSX.Element[] = [];
     for (const quiz of this.state.quizzes) {
-      quizList.push(<li> <div><a href="#" onClick={() => this.doLoadClick}> {quiz} </a></div>  </li>);
+      quizList.push(<li> <div><a href="#" onClick={() => this.doLoadClick(quiz)}> {quiz} </a></div>  </li>);
       // quizList.push(<li> <div><a href="#" > {quiz} </a></div>  </li>);
     }
     return <div>{quizList}</div>;
+  }
+
+  doFinishClick = (username: string, percent: number): void => {
+    const body = {name: username, score: percent, quiz: this.state.currQuizName};
+    fetch("/api/saveScore", {method: "POST", body: JSON.stringify(body), headers: {"Content-Type": "application/json"}})
+    .then(this.doFinishResp)
+    .catch(() => this.doFinishError("failed to connect"))
+  }
+
+  doFinishError = (msg: string): void => {
+    console.log(`fetch of /api/saveScore failed: ${msg}`)
+  }
+
+  doFinishResp = (res: Response): void => {
+    if (res.status === 200) { 
+      res.json().then(this.doFinishJson).catch(() => this.doFinishError("200 response is not valid json"));
+    } else if(res.status === 400) {
+      res.text().then(this.doFinishError).catch(() => this.doFinishError("400 response is not text"));
+    } else if (res.status === 404) {
+      console.log("again ");
+      res.text().then(this.doFinishError).catch(() => this.doFinishError("404 response is not text"));
+    } else {
+      this.doFinishError(`bad status code ${res.status}`);
+    }
+  }
+
+  doFinishJson = (_data: unknown): void => {
+    this.setState({page: {kind: "list"}});
   }
 
   doListResp = (res: Response): void => {
@@ -123,11 +155,10 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
     console.log(`fetch of /api/list failed: ${msg}`)
   }
 
-
   // ADD QUIZ (save)
   doAddClick = (quizName: string, deck: card[]): void => {
     // make fetch request to save on server.
-    const body = {name: quizName, value: JSON.stringify(deck)};
+    const body = {name: quizName, value: deck};
     fetch("/api/save", {method: "POST", body: JSON.stringify(body), headers: {"Content-Type": "application/json"}})
     .then(this.doAddResp)
     .catch(() => this.doAddError("failed to connect"))
@@ -135,7 +166,6 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
 
   doAddResp = (res: Response): void => {
     if (res.status === 200) { 
-      console.log("again safd");
       res.json().then(this.doAddJson).catch(() => this.doAddError("200 response is not valid json"));
     } else if(res.status === 400) {
       res.text().then(this.doAddError).catch(() => this.doAddError("400 response is not text"));
@@ -171,8 +201,8 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
 
 
   // LOAD (load)
-  doLoadClick = (_evt: MouseEvent<HTMLElement>): void => {
-    fetch("/api/load")
+  doLoadClick = (quiz: string): void => {
+    fetch(`/api/load?name=${quiz}`)
     .then(this.doLoadResp)
     .catch(() => this.doLoadError("failed to connect to server"));
   }
@@ -190,7 +220,17 @@ export class FlashcardApp extends Component<{}, FlashcardAppState> {
   doLoadJson = (data: unknown): void => {
     if (!isRecord(data)) {
       this.doListError("bad data from api/load, not a record");
+      return;
     } 
+    if (!Array.isArray(data.quiz)) {
+      this.doListError("bad data from api/load, quiz was not an array");
+      return;
+    }
+    if (typeof data.quizName !== "string") {
+      this.doListError("bad data from api/load, quizName was not a string");
+      return;
+    }
+     this.setState({page: {kind: "takequiz"}, currQuiz: data.quiz, currQuizName: data.quizName});
   }
   
   doLoadError = (msg: string): void => {

@@ -1,9 +1,15 @@
+
+/** Respresent a card in a deck of flashcards */
 export type card = {
     question: string;
     answer: string;
 }
 
-/** parses user given text to flash cards */
+/** parses user given text to flash cards 
+ * @param text accepts a string that represents a deck of flash cars
+ * @returns undefined if the deck was improperly formatted (no | in the middle of each line).
+ * Otherwise, returns an array of cards, with each line having its own element in the array.
+*/
 export const parseDeck = (text: string): undefined | card[] => {
     const deck: card[] = [];
     const lines: string[] = text.split('\n');
@@ -22,7 +28,5 @@ export const parseDeck = (text: string): undefined | card[] => {
     return deck;
 }
 
-/** converts strings to json format */
-export const toJson = (data: card[]): unknown => {
-    return data;
-}
+/** Represents the current page that the app should be display to the user */
+export type Page = {kind: "list"} | {kind: "takequiz"} | {kind: "createquiz"} | {kind: "endquiz"};

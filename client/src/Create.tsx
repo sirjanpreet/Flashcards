@@ -10,6 +10,7 @@ type CreateProps = {
 
     onSave: (quizName: string, cards: card[]) => void;
     onBack: () => void;
+    quizzes: string[]
 };
 
 type CreateState = {
@@ -18,8 +19,9 @@ type CreateState = {
     errorMsg: string;
 };
 
+/** Displays UI for the creating a quiz feature */
 export class Create extends Component<CreateProps, CreateState> {
-    
+
     constructor(props: CreateProps) {
         super(props);
     
@@ -29,6 +31,7 @@ export class Create extends Component<CreateProps, CreateState> {
         return <div>
         <div><h1>Create</h1></div>
         <div>Name: <input type="text" onChange={this.doNameChange} value={this.state.quizName} /></div> 
+        <div>Options (one per line, formatted front|back) </div>
         <div>
             <label htmlFor="textbox">Enter text:</label>
             <br/>
@@ -37,7 +40,7 @@ export class Create extends Component<CreateProps, CreateState> {
         <div>
         <button type="button" onClick={this.doAddClick}>Create</button> 
         <button type="button" onClick={this.doBackClick}>Back</button>
-        <div>{this.state.errorMsg}</div>
+        <div className="error">{this.state.errorMsg}</div>
         </div>
 
         </div>
@@ -50,14 +53,17 @@ export class Create extends Component<CreateProps, CreateState> {
         } else if (this.state.cards === "") {
             this.setState({errorMsg: "Error: no cards"});
             return;
-        } // else if () // make it so that repeats are not possible
+        } else if (this.props.quizzes.includes(this.state.quizName.trim())) {
+            this.setState({errorMsg: "Error: Quiz already exists"});
+            return;
+        } // make it so that repeats are not possible
         const parsedDeck = parseDeck(this.state.cards);
         if (parsedDeck === undefined) {
             // this.props.onSave(this.state.quizName);
             this.setState({errorMsg: "Error: incorrect format"});
         } else {
             this.setState({errorMsg: ""});
-            this.props.onSave(this.state.quizName, parsedDeck);
+            this.props.onSave(this.state.quizName.trim(), parsedDeck);
         }
     }
 
